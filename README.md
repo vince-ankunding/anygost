@@ -16,9 +16,9 @@
 ### 一键复制安装
 
 ```bash
-wget --no-check-certificate -O anygost.sh https://ghfast.top/https://raw.githubusercontent.com/vince-ankunding/anygost/refs/heads/main/anygost.sh
-chmod +x anygost.sh
-./anygost.sh
+wget --no-check-certificate -O gost.sh https://ghfast.top/https://raw.githubusercontent.com/vince-ankunding/anygost/refs/heads/main/anygost.sh
+chmod +x gost.sh
+./gost.sh
 
 ```
 
