@@ -8,7 +8,8 @@
 ##  界面预览
 
 
-<img width="455" height="470" alt="image" src="https://github.com/user-attachments/assets/5723e2dd-e0d0-4dd9-9581-cb6443e1a0f7" />
+<img width="419" height="403" alt="image" src="https://github.com/user-attachments/assets/94ea8116-7d3b-43df-9ae2-d6cdad395206" />
+
 
 
 
