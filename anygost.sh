@@ -13,10 +13,10 @@ STATUS_RUNNING="${C_GREEN}运行中${C_RESET}"
 STATUS_STOPPED="${C_RED}已停止${C_RESET}"
 
 
-LINE_HEAVY="━━━━━━━━━━━━━━━━━━━━━━"
-LINE_LIGHT="────────────────────────────"
-LINE_BOX="══════════════════════"
-LINE_TABLE="------------------------------------------------------------------"
+LINE_HEAVY="━━━━━━━━━━━━━━━━━━━━"
+LINE_LIGHT="────────────────────"
+LINE_BOX="════════════════════"
+LINE_TABLE="────────────────────"
 
 
 WORKDIR="/root/net-tools-anygost"
@@ -225,7 +225,8 @@ check_service_status() {
 show_services_status() {
   local has_services=false
 
-  show_menu_title "服务运行状态"
+  echo
+  printf '  %b\n' "${C_GREEN}服务运行状态${C_RESET}"
 
   local docker_names=""
   if command -v docker >/dev/null 2>&1; then
@@ -244,9 +245,6 @@ show_services_status() {
   if [ "$has_services" = false ]; then
     show_info "暂无已部署的服务"
   fi
-
-  echo
-  printf '  %s\n' "${LINE_LIGHT}"
 }
 
 
@@ -271,6 +269,10 @@ guard_gost() {
 install_ss_server() {
   ensure_workdir
 
+  # 确保 Docker 和 GOST 镜像可用
+  if ! auto_install_docker_and_gost; then
+    return 1
+  fi
 
   local PASS PORT
   PASS=$(generate_random_password)
@@ -497,6 +499,13 @@ install_xray_reality() {
   local CONTAINER_NAME="anygostxray"
   local XRAY_IMAGE="ghcr.io/xtls/xray-core:latest"
 
+  # 确保 Docker 可用
+  if ! command -v docker >/dev/null 2>&1; then
+    if ! auto_install_docker_and_gost; then
+      return 1
+    fi
+  fi
+
   pick_port "xray 端口(回车随机10000-20000): " 10000 20000 || return 1
   local LISTEN_PORT="$CHOSEN_PORT"
 
@@ -659,7 +668,6 @@ EOF
 
 
 build_server_menu() {
-  clear
   show_menu_title "服务端搭建"
   show_option "1" "${XRAY_LABEL} - 高性能抗封锁协议"
   show_option "2" "AnyTLS 加密隧道 - 轻量级 TLS 伪装"
@@ -785,7 +793,6 @@ show_all_services_info() {
 
 service_management_menu() {
   while true; do
-    clear
 
     show_all_services_info
 
@@ -824,7 +831,6 @@ manage_xray_service() {
   fi
 
   while true; do
-    clear
     echo "$LINE_BOX"
     echo -e "${XRAY_LABEL} 服务管理"
     echo "$LINE_BOX"
@@ -857,7 +863,7 @@ manage_xray_service() {
     echo -e "[8] 停止服务"
     echo -e "[0] 返回上级菜单"
     echo "$LINE_BOX"
-    read -e -p "请选择操作 [0-8]，直接回车返回上级菜单: " xray_choice
+    read -e -p "请选择操作 [0-8]: " xray_choice
 
 
     if [[ -z "$xray_choice" ]]; then
@@ -893,7 +899,6 @@ manage_anytls_service() {
   fi
 
   while true; do
-    clear
     echo "$LINE_BOX"
     echo -e "AnyTLS 服务管理"
     echo "$LINE_BOX"
@@ -922,7 +927,7 @@ manage_anytls_service() {
     echo -e "[7] 停止服务"
     echo -e "[0] 返回上级菜单"
     echo "$LINE_BOX"
-    read -e -p "请选择操作 [0-7]，直接回车返回上级菜单: " anytls_choice
+    read -e -p "请选择操作 [0-7]: " anytls_choice
 
 
     if [[ -z "$anytls_choice" ]]; then
@@ -959,7 +964,6 @@ manage_ss_service() {
   fi
 
   while true; do
-    clear
     echo "$LINE_BOX"
     echo -e "Shadowsocks 服务端管理"
     echo "$LINE_BOX"
@@ -985,7 +989,7 @@ manage_ss_service() {
     echo -e "[8] 停止服务"
     echo -e "[0] 返回上级菜单"
     echo "$LINE_BOX"
-    read -e -p "请选择操作 [0-8]，直接回车返回上级菜单: " ss_choice
+    read -e -p "请选择操作 [0-8]: " ss_choice
 
 
     if [[ -z "$ss_choice" ]]; then
@@ -1480,7 +1484,12 @@ Install_ct() {
   install_deps
   check_file
   check_sys
-  ensure_docker
+
+  # 自动安装 Docker 和 GOST 镜像
+  if ! auto_install_docker_and_gost; then
+    pause_with_prompt "按回车返回主菜单..."
+    return 1
+  fi
 
 
   ensure_workdir
@@ -1516,7 +1525,7 @@ Install_ct() {
     fi
     docker_run_gost
   fi
-  echo "------------------------------"
+  echo "$LINE_LIGHT"
   if docker ps --format '{{.Names}}' | grep -q '^anygostgost$'; then
     echo "gost安装成功"
     rm -rf "$(pwd)"/gost
@@ -1561,16 +1570,16 @@ Restart_ct() {
 
 read_protocol() {
   show_menu_title "转发规则类型选择"
-  show_option "1" "TCP+UDP端口转发（不加密）"
+  show_option "1" "建立TCP+UDP纯端口转发"
   show_info "本机端口转发到落地机，因为无加密，出境需要协议自带新机密机制"
   echo
-  show_option "2" "TLS加密隧道发送到落地机"
+  show_option "2" "建立TLS隧道（发送端）"
   show_info "本机建立GOST-TLS隧道加密发包到落地机，需落地机执行解密↓"
   echo
-  show_option "3" "落地机解密TLS隧道"
+  show_option "3" "建立TLS隧道（接收端）"
   show_info "落地机解密GOST-TLS隧道"
   echo
-  read -p "请选择 (直接回车返回上一页): " numprotocol
+  read -p "请选择 [1-3]: " numprotocol
 
 
   if [[ -z "$numprotocol" ]]; then
@@ -1588,33 +1597,54 @@ read_protocol() {
 }
 
 read_s_port() {
-  echo -e "------------------------------------------------------------------"
-  echo -e "请问你要将本机哪个端口接收到的流量进行转发?"
-  read -e -p "请输入 (直接回车返回上一页): " flag_b
+  echo -e "$LINE_TABLE"
+  echo -e "请输入本机监听端口（此端口接收的流量将被转发）"
+  echo
+  read -e -p "监听端口 [1-65535]: " flag_b
 
   if [[ -z "$flag_b" ]]; then
+    show_error "端口不能为空"
+    return 1
+  fi
+
+  # 验证端口是否有效
+  if [[ ! "$flag_b" =~ ^[0-9]+$ ]] || [ "$flag_b" -lt 1 ] || [ "$flag_b" -gt 65535 ]; then
+    show_error "端口无效，请输入 1-65535 之间的数字"
     return 1
   fi
 }
 
 read_d_ip() {
-  echo -e "------------------------------------------------------------------"
-  echo -e "请问你要将本机从${flag_b}接收到的流量转发到哪个IP或域名?"
-  echo -e "注: IP既可以是[远程机器/当前机器]的公网IP, 也可是以本机本地回环IP(即127.0.0.1)"
-  echo -e "具体IP地址的填写, 取决于接收该流量的服务正在监听的IP(详见: https://github.com/KANIKIG/Multi-EasyGost)"
-  read -e -p "请输入 (直接回车返回上一页): " flag_c
+  echo -e "$LINE_TABLE"
+  echo -e "请输入目标IP地址或域名（端口${flag_b}的流量将转发到此地址）"
+  echo
+  show_info "常见选择："
+  show_info "  • 127.0.0.1 - 转发到本机（默认，直接回车）"
+  show_info "  • 远程IP/域名 - 转发到其他服务器"
+  echo
+  read -e -p "目标地址 [默认: 127.0.0.1]: " flag_c
 
+  # 如果为空则使用默认值 127.0.0.1
   if [[ -z "$flag_c" ]]; then
-    return 1
+    flag_c="127.0.0.1"
+    show_success "已设置目标地址为: ${flag_c}"
   fi
 }
 
 read_d_port() {
-  echo -e "------------------------------------------------------------------"
-  echo -e "请问你要将本机从${flag_b}接收到的流量转发到${flag_c}的哪个端口?"
-  read -e -p "请输入 (直接回车返回上一页): " flag_d
+  echo -e "$LINE_TABLE"
+  echo -e "请输入目标端口（${flag_b} → ${flag_c}:目标端口）"
+  echo
+  read -e -p "目标端口 [1-65535]: " flag_d
 
   if [[ -z "$flag_d" ]]; then
+    show_error "端口不能为空"
+    return 1
+  fi
+
+  # 验证端口是否有效
+  if [[ ! "$flag_d" =~ ^[0-9]+$ ]] || [ "$flag_d" -lt 1 ] || [ "$flag_d" -gt 65535 ]; then
+    show_error "端口无效，请输入 1-65535 之间的数字"
     return 1
   fi
 }
@@ -1889,16 +1919,73 @@ delete_forwarding_rule() {
   return 0
 }
 
+
+# 检查 Docker 和 GOST 镜像状态（静默）
+check_docker_and_image_status() {
+  local docker_status="未安装"
+  local gost_image_status="未下载"
+
+  # 检查 Docker
+  if command -v docker >/dev/null 2>&1; then
+    if systemctl is-active --quiet docker 2>/dev/null || docker ps >/dev/null 2>&1; then
+      docker_status="${C_GREEN}运行中${C_RESET}"
+    else
+      docker_status="${C_RED}已安装但未运行${C_RESET}"
+    fi
+  else
+    docker_status="${C_RED}未安装${C_RESET}"
+  fi
+
+  # 检查 GOST 镜像
+  if docker images --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | grep -q "^${GOST_IMAGE}$"; then
+    gost_image_status="${C_GREEN}已下载${C_RESET}"
+  else
+    gost_image_status="${C_RED}未下载${C_RESET}"
+  fi
+
+  echo -e "  Docker: ${docker_status}  |  GOST镜像: ${gost_image_status}"
+}
+
+# 自动安装缺失组件（仅在需要时调用）
+auto_install_docker_and_gost() {
+  # 检查并安装 Docker
+  if ! command -v docker >/dev/null 2>&1; then
+    show_info "未检测到 Docker，正在自动安装..."
+    ensure_docker
+    if ! command -v docker >/dev/null 2>&1; then
+      show_error "Docker 安装失败，请手动安装后再运行脚本"
+      return 1
+    fi
+    show_success "Docker 安装完成"
+  fi
+
+  # 确保 Docker 服务运行
+  if ! systemctl is-active --quiet docker 2>/dev/null && ! docker ps >/dev/null 2>&1; then
+    show_info "正在启动 Docker 服务..."
+    systemctl start docker 2>/dev/null || true
+    sleep 2
+  fi
+
+  # 检查并下载 GOST 镜像
+  if ! docker images --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | grep -q "^${GOST_IMAGE}$"; then
+    show_info "未检测到 GOST 镜像，正在自动下载..."
+    if docker pull "${GOST_IMAGE}"; then
+      show_success "GOST 镜像下载完成"
+    else
+      show_error "GOST 镜像下载失败，请检查网络连接"
+      return 1
+    fi
+  fi
+
+  return 0
+}
+
 while true; do
   clear
   echo
-  printf '  %b\n' "${C_GREEN}anygost 多协议代理管理平台${C_RESET}"
-  echo "  一键纯净搭建和管理 Reality/AnyTLS/GOST 服务端"
-  echo "  无 apt update 等冗余操作，GOST/Xray 使用高速 Docker 官方镜像"
-  echo "  配置文件路径${WORKDIR}/"
-  printf '  %s\n' "${LINE_HEAVY}"
-
-
+  printf '  %b\n' "${C_GREEN}Anygost 一键纯净搭建 Reality/AnyTLS/GOST 服务端${C_RESET}"
+  echo "  配置文件路径: /root/net-tools-anygost/"
+  echo "  项目地址: https://github.com/vince-ankunding/anygost"
   show_services_status
 
   show_menu_title "服务部署与管理"
@@ -1931,7 +2018,6 @@ while true; do
     service_management_menu
     ;;
   3)
-    clear
 
     show_menu_title "服务卸载"
     echo -e "${C_RED}警告: 卸载操作将完全删除所选服务及其配置文件${C_RESET}"
