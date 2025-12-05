@@ -1824,16 +1824,14 @@ writeconf() {
 
 show_all_conf() {
   ensure_gost_resources
-  local width_index=6 width_method=16 width_port=12
-  local header_index header_method header_port
-  header_index=$(pad_cell "序号" "$width_index" center)
-  header_method=$(pad_cell "方法" "$width_method" center)
-  header_port=$(pad_cell "本机端口" "$width_port" center)
-  printf '  %s │ %s │ %s │ %s\n' "$header_index" "$header_method" "$header_port" "发送到的地址和端口"
-  printf '  %s─┼─%s─┼─%s─┼─%s\n' "$(printf '─%.0s' {1..6})" "$(printf '─%.0s' {1..16})" "$(printf '─%.0s' {1..12})" "──────────────────────"
+
+  echo
+  printf '  %-6s  %-18s  %-14s  %-32s\n' "序号" "方法" "本机端口" "发送到的地址和端口"
+  printf '  %s\n' "────────────────────────────────────────────────────────────────────────"
 
   if [ ! -f "$raw_conf_path" ]; then
-    echo -e "暂无转发配置记录"
+    echo "  暂无转发配置记录"
+    echo
     return 1
   fi
 
@@ -1878,17 +1876,15 @@ show_all_conf() {
     esac
 
     local display_port="${s_port:--}"
-    local col_index col_method col_port
-    col_index=$(pad_cell "$i" "$width_index" center)
-    col_method=$(pad_cell "$method_label" "$width_method" center)
-    col_port=$(pad_cell "$display_port" "$width_port" center)
-    printf '  %s │ %s │ %s │ %s\n' "$col_index" "$col_method" "$col_port" "$target_info"
+
+    printf '  %-6s  %-18s  %-14s  %-32s\n' "$i" "$method_label" "$display_port" "$target_info"
   done
 
   if [ "$has_entries" = false ]; then
-    echo -e "暂无转发配置记录"
-    return 1
+    echo "  暂无转发配置记录"
   fi
+
+  echo
 
   return 0
 }
