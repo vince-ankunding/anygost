@@ -1579,7 +1579,10 @@ read_protocol() {
   show_option "3" "建立TLS隧道（接收端）"
   show_info "落地机解密GOST-TLS隧道"
   echo
-  read -p "请选择 [1-3]: " numprotocol
+  show_option "4" "建立单独UDP端口转发"
+  show_info "仅转发UDP协议流量，适用于游戏、语音等UDP应用"
+  echo
+  read -p "请选择 [1-4]: " numprotocol
 
 
   if [[ -z "$numprotocol" ]]; then
@@ -1590,6 +1593,8 @@ read_protocol() {
     encrypt
   elif [ "$numprotocol" == "3" ]; then
     decrypt
+  elif [ "$numprotocol" == "4" ]; then
+    flag_a="udponly"
   else
     echo "type error, please try again"
     return 1
@@ -1741,6 +1746,8 @@ method() {
     if [ "$is_encrypt" == "nonencrypt" ]; then
       echo "        \"tcp://:$s_port/$d_ip:$d_port\",
         \"udp://:$s_port/$d_ip:$d_port\"" >>$gost_conf_path
+    elif [ "$is_encrypt" == "udponly" ]; then
+      echo "        \"udp://:$s_port/$d_ip:$d_port\"" >>$gost_conf_path
     elif [ "$is_encrypt" == "encrypttls" ]; then
       echo "        \"tcp://:$s_port\",
         \"udp://:$s_port\"
@@ -1758,6 +1765,8 @@ method() {
     if [ "$is_encrypt" == "nonencrypt" ]; then
       echo "                \"tcp://:$s_port/$d_ip:$d_port\",
                 \"udp://:$s_port/$d_ip:$d_port\"" >>$gost_conf_path
+    elif [ "$is_encrypt" == "udponly" ]; then
+      echo "                \"udp://:$s_port/$d_ip:$d_port\"" >>$gost_conf_path
     elif [ "$is_encrypt" == "encrypttls" ]; then
       echo "                \"tcp://:$s_port\",
                 \"udp://:$s_port\"
@@ -1815,13 +1824,13 @@ writeconf() {
 
 show_all_conf() {
   ensure_gost_resources
-  local width_index=4 width_method=12 width_port=8
+  local width_index=6 width_method=16 width_port=12
   local header_index header_method header_port
   header_index=$(pad_cell "序号" "$width_index" center)
   header_method=$(pad_cell "方法" "$width_method" center)
   header_port=$(pad_cell "本机端口" "$width_port" center)
-  printf '  %s │ %s │ %s │   %s\n' "$header_index" "$header_method" "$header_port" "发送到的地址和端口"
-  printf '  %s\n' "$LINE_TABLE"
+  printf '  %s │ %s │ %s │ %s\n' "$header_index" "$header_method" "$header_port" "发送到的地址和端口"
+  printf '  %s─┼─%s─┼─%s─┼─%s\n' "$(printf '─%.0s' {1..6})" "$(printf '─%.0s' {1..16})" "$(printf '─%.0s' {1..12})" "──────────────────────"
 
   if [ ! -f "$raw_conf_path" ]; then
     echo -e "暂无转发配置记录"
@@ -1844,6 +1853,10 @@ show_all_conf() {
     case "$is_encrypt" in
       "nonencrypt")
         method_label="不加密中转"
+        target_info="${d_ip}:${d_port}"
+        ;;
+      "udponly")
+        method_label="UDP转发"
         target_info="${d_ip}:${d_port}"
         ;;
       "encrypttls")
@@ -1870,7 +1883,6 @@ show_all_conf() {
     col_method=$(pad_cell "$method_label" "$width_method" center)
     col_port=$(pad_cell "$display_port" "$width_port" center)
     printf '  %s │ %s │ %s │ %s\n' "$col_index" "$col_method" "$col_port" "$target_info"
-    printf '  %s\n' "$LINE_TABLE"
   done
 
   if [ "$has_entries" = false ]; then
